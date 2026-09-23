@@ -1,0 +1,53 @@
+// Ballot Boreal privacy contract.
+// The contract retains public election metadata and aggregate state only.
+// A voter-held credential witness is evaluated inside the proof and never enters ledger state.
+
+pragma language_version >= 0.10;
+
+contract BallotBoreal {
+  // Public ledger state: safe for every observer.
+  ledger ballot_id: Bytes<32>;
+  ledger issuer_key_hash: Bytes<32>;
+  ledger opens_at: Uint<64>;
+  ledger closes_at: Uint<64>;
+  ledger finalized_proofs: Uint<64>;
+  ledger used_nullifiers: Set<Bytes<32>>;
+
+  // Private witness supplied by the wallet/prover; not written to the ledger.
+  witness membership_credential(): Bytes<256>;
+  witness credential_signature(): Bytes<64>;
+  witness voter_secret(): Bytes<32>;
+
+  circuit initialize(ballot: Bytes<32>, issuer: Bytes<32>, opens: Uint<64>, closes: Uint<64>) {
+    assert(opens < closes, "ballot schedule is invalid");
+    ballot_id = ballot;
+    issuer_key_hash = issuer;
+    opens_at = opens;
+    closes_at = closes;
+    finalized_proofs = 0;
+  }
+
+  // Private credential is signature-checked and its claims are constraint-checked locally.
+  // disclose(eligible) is justified: the verifier needs only the boolean policy outcome.
+  circuit prove_eligibility(now: Uint<64>, requested_ballot: Bytes<32>): Boolean {
+    const credential = membership_credential();
+    const signature = credential_signature();
+    assert(now >= opens_at && now <= closes_at, "ballot is not open");
+    assert(requested_ballot == ballot_id, "wrong ballot");
+    assert(verify_issuer_signature(issuer_key_hash, credential, signature), "invalid issuer signature");
+    const eligible = credential_has_active_membership(credential, ballot_id, now);
+    assert(eligible, "credential is not eligible");
+    return disclose(eligible);
+  }
+
+  // Creates an unlinkable one-time nullifier from a private wallet secret and ballot domain.
+  // disclose(nullifier) is justified: the public ledger must reject a replay without identity linkage.
+  circuit cast_once(now: Uint<64>, requested_ballot: Bytes<32>): Bytes<32> {
+    assert(prove_eligibility(now, requested_ballot), "eligibility proof failed");
+    const nullifier = poseidon(voter_secret(), ballot_id);
+    assert(!used_nullifiers.contains(nullifier), "a proof was already accepted for this ballot");
+    used_nullifiers.insert(disclose(nullifier));
+    finalized_proofs = finalized_proofs + 1;
+    return disclose(nullifier);
+  }
+}

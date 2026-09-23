@@ -1,0 +1,12 @@
+services:
+  midnight-proof-server:
+    # Set this to the official proof-server image/tag that matches your Compact compiler and target network.
+    image: ${MIDNIGHT_PROOF_SERVER_IMAGE:?Set a compatible official proof-server image}
+    ports:
+      - "6300:6300"
+    volumes:
+      - ./contracts/artifacts:/opt/midnight/artifacts:ro
+    environment:
+      MIDNIGHT_NETWORK: ${MIDNIGHT_NETWORK:-preview}
+      PROVING_KEYS_PATH: /opt/midnight/artifacts
+    restart: unless-stopped
