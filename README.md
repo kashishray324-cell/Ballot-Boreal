@@ -98,9 +98,20 @@ uv run --directory backend pytest
 
 The repository currently has 17 useful tests: Compact boundary assertions; redaction; receipt validation; local witness persistence and rotation; provider discovery; network selection; no-fake-transaction handling; responsive voter rendering; FastAPI health; Gemini fallback; public receipt storage, privacy checks, and aggregation.
 
-## CI/CD and deployment
+## Vercel deployment
 
-Every push and pull request runs Node 22 install, Python/uv setup, Compact compilation, artifact-diff checking, contract validation, frontend lint/tests/build, and backend lint/tests. Set the repository variable `COMPACTC_INSTALL_URL` to a pinned official compiler archive before enabling CI. Successful pushes to `main` deploy the built frontend through GitHub Pages. `render.yaml` supplies a deployable FastAPI service definition; configure its secret environment variables in Render.
+This repository is configured for one Vercel project: Vite serves the frontend from `dist/`, and `/api/*` is rewritten to the FastAPI serverless entrypoint in `api/index.py`.
+
+1. Import the repository into Vercel with the repository root as the project root.
+2. Keep the detected Vite build command (`npm run build`) and output directory (`dist`).
+3. Add `DATABASE_URL`, `DATABASE_DIRECT_URL`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `ALLOWED_ORIGINS`, and `ENVIRONMENT=production` as Vercel environment variables. Use the deployed site’s origin in `ALLOWED_ORIGINS`.
+4. Deploy. `/api/health`, `/api/metrics`, `/api/policy-plan`, and `/api/receipts` are served by the same Vercel project.
+
+Vercel does not supply a compatible Midnight proof service; deploy that separately only after choosing the official compiler/proof-server release. Keep proving artifacts out of Vercel function bundles until they are confirmed compatible with the deployment limits.
+
+## CI/CD
+
+Every push and pull request runs Node 22 install, Python/uv setup, Compact compilation, artifact-diff checking, contract validation, frontend lint/tests/build, and backend lint/tests. Set the repository variable `COMPACTC_INSTALL_URL` to a pinned official compiler archive before enabling CI. Vercel handles production deployment from the connected Git repository.
 
 **Live demo:** not deployed yet. **Repository URL:** configure after pushing this local repository to GitHub.
 
