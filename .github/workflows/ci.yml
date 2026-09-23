@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ballot-boreal-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: uv sync --directory backend --all-groups
+      # Provide COMPACTC_INSTALL_URL as a repository variable for the official release matching Preview/Preprod.
+      - name: Restore official Compact compiler
+        env: { COMPACTC_INSTALL_URL: ${{ vars.COMPACTC_INSTALL_URL }} }
+        run: |
+          test -n "$COMPACTC_INSTALL_URL" || { echo "Set COMPACTC_INSTALL_URL to a pinned official compiler archive"; exit 1; }
+          curl -fsSL "$COMPACTC_INSTALL_URL" -o /tmp/compactc.tar.gz
+          tar -xzf /tmp/compactc.tar.gz -C /usr/local/bin
+          compactc --version
+      - name: Compile Compact contract
+        run: compactc contracts/BallotBoreal.compact --output contracts/artifacts
+      - name: Verify committed generated artifacts
+        run: git diff --exit-code -- contracts/artifacts
+      - run: npm run contract:validate
+      - run: npm run lint
+      - run: npm test
+      - run: uv run --directory backend ruff check .
+      - run: uv run --directory backend pytest
+      - run: npm run build
+  deploy-pages:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: github-pages
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci && npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: dist }
+      - uses: actions/deploy-pages@v4
