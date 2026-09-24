@@ -9,14 +9,26 @@ from app.main import app
 async def test_health_endpoint():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/health")
-    assert response.status_code == 200 and response.json()["status"] == "ok"
+    assert response.status_code == 200 and response.json() == {"status": "ok", "database": True, "environment": "development"}
 
 
 @pytest.mark.asyncio
 async def test_policy_endpoint_uses_safe_fallback():
+    await init_models()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post("/policy-plan", json={"public_requirement": "Active cooperative membership before 1 September"})
     assert response.status_code == 200 and response.json()["source"] == "local-fallback"
+
+
+@pytest.mark.asyncio
+async def test_policy_plan_is_cached_by_public_text_hash_only():
+    await init_models()
+    body = {"public_requirement": "Membership is active before the public deadline."}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        first = await client.post("/policy-plan", json=body)
+        second = await client.post("/policy-plan", json=body)
+    assert first.status_code == second.status_code == 200
+    assert first.json() == second.json()
 
 
 @pytest.mark.asyncio

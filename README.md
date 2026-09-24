@@ -96,16 +96,16 @@ uv run --directory backend ruff check .
 uv run --directory backend pytest
 ```
 
-The repository currently has 17 useful tests: Compact boundary assertions; redaction; receipt validation; local witness persistence and rotation; provider discovery; network selection; no-fake-transaction handling; responsive voter rendering; FastAPI health; Gemini fallback; public receipt storage, privacy checks, and aggregation.
+The repository currently has 19 useful tests: Compact boundary assertions; redaction; receipt validation; local witness persistence and rotation; provider discovery; network selection; actionable wallet recovery; no-fake-transaction handling; responsive voter rendering; FastAPI health and database availability; Gemini fallback; public-policy hash caching; public receipt storage, privacy checks, and aggregation.
 
 ## Vercel deployment
 
-This repository is configured for one Vercel project: Vite serves the frontend from `dist/`, and `/api/*` is rewritten to the FastAPI serverless entrypoint in `api/index.py`.
+This repository is configured for one Vercel project: Vite serves the frontend from `dist/`, while Vercel discovers the FastAPI application exported by `api/index.py` under `/api/*`. Runtime dependencies are intentionally limited in the root `requirements.txt`; non-runtime source is excluded from the function bundle.
 
 1. Import the repository into Vercel with the repository root as the project root.
 2. Keep the detected Vite build command (`npm run build`) and output directory (`dist`).
 3. Add `DATABASE_URL`, `DATABASE_DIRECT_URL`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `ALLOWED_ORIGINS`, and `ENVIRONMENT=production` as Vercel environment variables. Use the deployed site’s origin in `ALLOWED_ORIGINS`.
-4. Deploy. `/api/health`, `/api/metrics`, `/api/policy-plan`, and `/api/receipts` are served by the same Vercel project.
+4. Deploy. `/api/health`, `/api/metrics`, `/api/policy-plan`, and `/api/receipts` are served by the same Vercel project. Test the deployment with `/api/health` before connecting a wallet.
 
 Vercel does not supply a compatible Midnight proof service; deploy that separately only after choosing the official compiler/proof-server release. Keep proving artifacts out of Vercel function bundles until they are confirmed compatible with the deployment limits.
 

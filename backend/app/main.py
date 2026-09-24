@@ -1,14 +1,15 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from .config import get_settings
-from .database import get_session, init_models
+from .database import database_is_available, get_session, init_models
 from .gemini import compose_policy_plan
-from .models import ProofReceipt
-from .privacy import contains_private_field
+from .models import PolicyPlan, ProofReceipt
+from .privacy import contains_private_field, request_hash
 from .schemas import PolicyPlanOut, PolicyRequest, ProofReceiptIn, ProofReceiptOut
 
 
@@ -21,11 +22,25 @@ async def lifespan(_: FastAPI):
 settings = get_settings()
 app = FastAPI(title="Ballot Boreal Public API", version="0.1.0", lifespan=lifespan, docs_url="/docs" if settings.environment == "development" else None)
 app.add_middleware(CORSMiddleware, allow_origins=settings.origins, allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
+
+@app.middleware("http")
+async def add_public_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store" if request.url.path.startswith("/receipts") else "public, max-age=60"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    return response
 
 
 @app.get("/health")
-async def health():
-    return {"status": "ok", "environment": settings.environment}
+async def health(response: Response):
+    database = await database_is_available()
+    if not database:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    return {"status": "ok" if database else "degraded", "database": database, "environment": settings.environment}
 
 
 @app.get("/metrics")
@@ -35,8 +50,19 @@ async def metrics(session: AsyncSession = Depends(get_session)):
 
 
 @app.post("/policy-plan", response_model=PolicyPlanOut)
-async def policy_plan(request: PolicyRequest):
-    return await compose_policy_plan(request.public_requirement)
+async def policy_plan(request: PolicyRequest, session: AsyncSession = Depends(get_session)):
+    # The raw public requirement is deliberately not persisted; only its hash and safe response are retained.
+    key = request_hash(request.public_requirement)
+    existing = await session.scalar(select(PolicyPlan).where(PolicyPlan.request_hash == key))
+    if existing:
+        return PolicyPlanOut.model_validate_json(existing.plan_json)
+    plan = await compose_policy_plan(request.public_requirement)
+    session.add(PolicyPlan(request_hash=key, plan_json=plan.model_dump_json()))
+    try:
+        await session.commit()
+    except Exception:
+        await session.rollback()
+    return plan
 
 
 @app.post("/receipts", response_model=ProofReceiptOut, status_code=201)

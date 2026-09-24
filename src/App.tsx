@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowUpRight, Check, ChevronRight, CircleHelp, Cloud, Fingerprint, KeyRound, Landmark, LockKeyhole, ShieldCheck, UsersRound, Wallet, X } from 'lucide-react'
 import { loadLocalWitness, replaceLocalWitness } from './lib/vault'
-import { connectWallet, discoverWallets, submitProof, type MidnightProvider, type Network } from './lib/wallet'
+import { connectWallet, describeWalletError, discoverWallets, submitProof, type MidnightProvider, type Network } from './lib/wallet'
+import { getMetrics, getPolicyPlan, type PolicyPlan } from './lib/api'
 
 const steps = ['Understand the ballot', 'Prepare local eligibility', 'Keep data private', 'Review disclosure', 'Connect 1AM', 'Generate proof', 'View receipt']
 const ballotId = 'northward-housing-2026'
+const publicRequirement = 'Active cooperative membership issued before 1 September 2026. One valid proof is allowed per member.'
 
 export default function App() {
   const reduceMotion = useReducedMotion()
@@ -15,12 +17,26 @@ export default function App() {
   const [wallet, setWallet] = useState<{ provider: MidnightProvider; name: string; address?: string } | null>(null)
   const [state, setState] = useState<'ready' | 'connecting' | 'proving' | 'submitted' | 'error'>('ready')
   const [message, setMessage] = useState('Review the two public outputs before you continue.')
-  const wallets = useMemo(() => discoverWallets(), [])
+  const [walletCount, setWalletCount] = useState(() => discoverWallets().length)
+  const [metrics, setMetrics] = useState<number | null>(null)
+  const [policyPlan, setPolicyPlan] = useState<PolicyPlan | null>(null)
+  const [policyState, setPolicyState] = useState<'idle' | 'loading' | 'error'>('idle')
+
+  useEffect(() => {
+    const refreshPublicState = async () => {
+      setWalletCount(discoverWallets().length)
+      try { setMetrics((await getMetrics()).finalized_proofs) } catch { setMetrics(null) }
+    }
+    void refreshPublicState()
+    window.addEventListener('focus', refreshPublicState)
+    return () => window.removeEventListener('focus', refreshPublicState)
+  }, [])
 
   const prepare = () => { setWitness(replaceLocalWitness('Local eligibility record')); setStep(2); setMessage('A private eligibility record is now held only on this device.') }
   const selectNetwork = (next: Network) => { setNetwork(next); setWallet(null); setState('ready'); setMessage(`Network changed to ${next}. Your wallet session was reset.`) }
-  const connect = async () => { try { setState('connecting'); const result = await connectWallet(network); setWallet({ provider: result.provider, name: result.provider.name ?? 'Midnight wallet', address: result.address }); setStep(4); setState('ready'); setMessage('Wallet connected for this browser session only.') } catch (error) { setState('error'); setMessage(error instanceof Error ? error.message : 'Wallet connection failed.') } }
-  const prove = async () => { if (!wallet) return connect(); try { setState('proving'); setStep(5); setMessage('Your wallet is generating a zero-knowledge proof locally. No vote or eligibility value is sent to this page.'); const result = await submitProof(wallet.provider, ballotId, network); setState('submitted'); setStep(6); setMessage(`Proof submitted as ${result.txId}. Waiting for finalization before showing a receipt.`) } catch (error) { setState('error'); setMessage(error instanceof Error ? error.message : 'Proof submission failed.') } }
+  const connect = async () => { try { setState('connecting'); const result = await connectWallet(network); setWallet({ provider: result.provider, name: result.provider.name ?? 'Midnight wallet', address: result.address }); setStep(4); setState('ready'); setMessage('Wallet connected for this browser session only.') } catch (error) { setState('error'); setMessage(describeWalletError(error)) } }
+  const prove = async () => { if (!wallet) return connect(); try { setState('proving'); setStep(5); setMessage('Your wallet is generating a zero-knowledge proof locally. No vote or eligibility value is sent to this page.'); const result = await submitProof(wallet.provider, ballotId, network); setState('submitted'); setStep(6); setMessage(`Proof submitted as ${result.txId}. Waiting for finalization before showing a receipt.`) } catch (error) { setState('error'); setMessage(describeWalletError(error)) } }
+  const explainPolicy = async () => { try { setPolicyState('loading'); setPolicyPlan(await getPolicyPlan(publicRequirement)); setPolicyState('idle') } catch { setPolicyState('error') } }
   const transition = reduceMotion ? { duration: 0 } : { duration: .22, ease: 'easeOut' as const }
   return <div className="app-shell">
     <a className="skip-link" href="#vote">Skip to voter workspace</a>
@@ -40,9 +56,9 @@ export default function App() {
         <section className="proof card"><div><p className="eyebrow">Proof status</p><h2>{state === 'submitted' ? 'Submission received — awaiting finalization' : state === 'proving' ? 'Generating your proof locally' : 'Ready when you are'}</h2></div><div className="proof-track"><span className={state === 'proving' || state === 'submitted' ? 'active' : ''}>Local check</span><span className={state === 'submitted' ? 'active' : ''}>Wallet submission</span><span>Network finalization</span></div><button className="primary" disabled={state === 'connecting' || state === 'proving'} onClick={prove}>{state === 'proving' ? 'Generating proof…' : wallet ? 'Generate and submit proof' : 'Connect 1AM to continue'} <ChevronRight size={17} /></button></section>
         <div role="status" className={`message ${state}`}>{state === 'error' ? <X size={18} /> : <Fingerprint size={18} />}{message}</div>
       </section>
-      <aside className="utility-rail"><section className="wallet-card"><div className="utility-heading"><Wallet size={19} /><h2>Wallet session</h2></div><div className="network-tabs" role="tablist"><button aria-selected={network === 'preview'} onClick={() => selectNetwork('preview')}>Preview</button><button aria-selected={network === 'preprod'} onClick={() => selectNetwork('preprod')}>Preprod</button></div><p className="small">{wallet ? `${wallet.name}${wallet.address ? ` · ${wallet.address.slice(0, 8)}…` : ''}` : wallets.length ? `${wallets.length} provider found · 1AM preferred` : 'Looking for a UUID-keyed Midnight provider'}</p>{wallet ? <button className="secondary" onClick={() => { wallet.provider.disconnect?.(); setWallet(null); setMessage('Wallet disconnected from this session.'); }}>Disconnect session</button> : <button className="secondary" onClick={connect} disabled={state === 'connecting'}>{state === 'connecting' ? 'Connecting…' : 'Connect 1AM'}</button>}</section>
-        <section className="gemini-card"><div className="utility-heading"><KeyRound size={19} /><h2>Policy guide</h2></div><p>Gemini can explain this public ballot rule in plain language.</p><div className="ai-boundary"><span>Gemini sees</span><strong>Public policy text only</strong><small>Never your witness, secret, wallet address, or vote.</small></div><button className="text-button">Explain the two disclosures <ChevronRight size={16} /></button></section>
-        <section id="results" className="metrics"><p className="eyebrow">Public ballot metrics</p><div><strong>0</strong><span>finalized proofs</span></div><div><strong>0%</strong><span>turnout</span></div><p className="small">No outcome is presented as final before an on-chain receipt is finalized.</p></section>
+      <aside className="utility-rail"><section className="wallet-card"><div className="utility-heading"><Wallet size={19} /><h2>Wallet session</h2></div><div className="network-tabs" role="tablist"><button aria-selected={network === 'preview'} onClick={() => selectNetwork('preview')}>Preview</button><button aria-selected={network === 'preprod'} onClick={() => selectNetwork('preprod')}>Preprod</button></div><p className="small">{wallet ? `${wallet.name}${wallet.address ? ` · ${wallet.address.slice(0, 8)}…` : ''}` : walletCount ? `${walletCount} provider found · 1AM preferred` : 'Looking for a UUID-keyed Midnight provider'}</p>{wallet ? <button className="secondary" onClick={() => { wallet.provider.disconnect?.(); setWallet(null); setMessage('Wallet disconnected from this session.'); }}>Disconnect session</button> : <button className="secondary" onClick={connect} disabled={state === 'connecting'}>{state === 'connecting' ? 'Connecting…' : 'Connect 1AM'}</button>}</section>
+        <section className="gemini-card"><div className="utility-heading"><KeyRound size={19} /><h2>Policy guide</h2></div><p>Get a constrained, plain-language explanation of this public requirement.</p><div className="ai-boundary"><span>Assistant sees</span><strong>Public policy text only</strong><small>Never your witness, secret, wallet address, or vote.</small></div>{policyPlan && <div className="policy-answer"><strong>{policyPlan.summary}</strong><p>{policyPlan.caution}</p><small>{policyPlan.source === 'gemini' ? 'Structured Gemini response' : 'Deterministic local explanation'}</small></div>}<button className="text-button" onClick={explainPolicy} disabled={policyState === 'loading'}>{policyState === 'loading' ? 'Preparing explanation…' : 'Explain the two disclosures'} <ChevronRight size={16} /></button>{policyState === 'error' && <p className="inline-error">The policy guide is unavailable. Your proof flow is unaffected.</p>}</section>
+        <section id="results" className="metrics"><p className="eyebrow">Public ballot metrics</p><div><strong>{metrics ?? '—'}</strong><span>finalized proofs</span></div><div><strong>—</strong><span>turnout opens with the ballot</span></div><p className="small">Public figures load from the public API. No outcome is presented as final before an on-chain receipt is finalized.</p></section>
       </aside>
     </div>
       <section id="faq" className="faq-section section-wrap"><div><p className="eyebrow">Questions, answered plainly</p><h2>Privacy should be explainable before it is technical.</h2></div><div className="faq-list"><details open><summary>Does the ballot see my vote?</summary><p>No. The vote selection stays in the private proving context. The public side receives the proof outcome and a replay-safe nullifier only.</p></details><details><summary>Why is there a nullifier?</summary><p>It lets the public contract detect a second attempt for this ballot without learning which member created it.</p></details><details><summary>What can Gemini see?</summary><p>Only public policy text that has been redacted for obvious sensitive patterns. It never receives credentials, secrets, wallet addresses, or vote choices.</p></details></div></section>
