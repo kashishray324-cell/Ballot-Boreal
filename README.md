@@ -2,7 +2,7 @@
 
 > A privacy-first civic ballot: prove eligibility once, without turning a voter into a public record.
 
-[![CI](https://github.com/OWNER/ballot-boreal/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/ballot-boreal/actions/workflows/ci.yml)
+[![CI](https://github.com/kashishray324-cell/Ballot-Boreal/actions/workflows/ci.yml/badge.svg)](https://github.com/kashishray324-cell/Ballot-Boreal/actions/workflows/ci.yml)
 
 Ballot Boreal is a Midnight dApp prototype for housing cooperatives, campus bodies, and member associations. A voter proves an issuer-signed eligibility credential locally, obtains an anonymous one-time nullifier, and submits a Compact circuit. The ledger receives an eligibility outcome, a nullifier, and public ballot state—never the credential, identity, or vote choice.
 
@@ -45,6 +45,7 @@ src/                 React app, wallet discovery, local witness metadata, UI tes
 contracts/           Compact source, privacy rationale, generated-artifact destination
 backend/app/         FastAPI API, async SQLAlchemy models, Gemini boundary service
 backend/alembic/     Initial public-only database migration
+netlify/functions/   Netlify-native TypeScript adapter for the public API routes
 docs/                Product, architecture, privacy, and demo documentation
 .github/workflows/   CI and GitHub Pages deployment workflow
 ```
@@ -98,22 +99,22 @@ uv run --directory backend pytest
 
 The repository currently has 19 useful tests: Compact boundary assertions; redaction; receipt validation; local witness persistence and rotation; provider discovery; network selection; actionable wallet recovery; no-fake-transaction handling; responsive voter rendering; FastAPI health and database availability; Gemini fallback; public-policy hash caching; public receipt storage, privacy checks, and aggregation.
 
-## Vercel deployment
+## Netlify deployment
 
-This repository is configured for one Vercel project: Vite serves the frontend from `dist/`, while Vercel discovers the FastAPI application exported by `api/index.py` under `/api/*`. Runtime dependencies are intentionally limited in the root `requirements.txt`; non-runtime source is excluded from the function bundle.
+This repository is configured as one Netlify site. Vite publishes the frontend from `dist/`, while the Netlify-native TypeScript function in `netlify/functions/api.mts` serves `/api/health`, `/api/metrics`, `/api/policy-plan`, and `/api/receipts`. The existing FastAPI application remains available for local development or separate backend hosting.
 
-1. Import the repository into Vercel with the repository root as the project root.
-2. Keep the detected Vite build command (`npm run build`) and output directory (`dist`).
-3. Add `DATABASE_URL`, `DATABASE_DIRECT_URL`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `ALLOWED_ORIGINS`, and `ENVIRONMENT=production` as Vercel environment variables. Use the deployed site’s origin in `ALLOWED_ORIGINS`.
-4. Deploy. `/api/health`, `/api/metrics`, `/api/policy-plan`, and `/api/receipts` are served by the same Vercel project. Test the deployment with `/api/health` before connecting a wallet.
+1. Import `kashishray324-cell/Ballot-Boreal` into Netlify with the repository root as the base directory. Netlify reads `netlify.toml`; no build-setting overrides are required.
+2. In **Project configuration → Environment variables**, add `DATABASE_URL` using the pooled Neon Postgres URL, `GEMINI_API_KEY` if desired, `GEMINI_MODEL=gemini-2.5-flash`, `ALLOWED_ORIGINS=https://YOUR-SITE.netlify.app`, and `ENVIRONMENT=production`. Do not put secrets in `netlify.toml` or a `VITE_*` variable.
+3. Run the existing Alembic migration once against `DATABASE_DIRECT_URL` before the production deploy: `uv run --directory backend alembic upgrade head`.
+4. Deploy and open `/api/health`. It should return `{"status":"ok","database":true}` before connecting a wallet.
 
-Vercel does not supply a compatible Midnight proof service; deploy that separately only after choosing the official compiler/proof-server release. Keep proving artifacts out of Vercel function bundles until they are confirmed compatible with the deployment limits.
+The frontend uses same-origin `/api` by default, so `VITE_API_URL` should be left unset in Netlify. Netlify does not supply a compatible Midnight proof service; deploy that separately only after choosing the official compiler/proof-server release.
 
 ## CI/CD
 
-Every push and pull request runs Node 22 install, Python/uv setup, Compact compilation, artifact-diff checking, contract validation, frontend lint/tests/build, and backend lint/tests. Set the repository variable `COMPACTC_INSTALL_URL` to a pinned official compiler archive before enabling CI. Vercel handles production deployment from the connected Git repository.
+Every push and pull request runs Node 22 install, Python/uv setup, Compact compilation, artifact-diff checking, contract validation, frontend lint/tests/build, and backend lint/tests. Set the repository variable `COMPACTC_INSTALL_URL` to a pinned official compiler archive before enabling CI. Netlify handles production deployment from the connected Git repository.
 
-**Live demo:** not deployed yet. **Repository URL:** configure after pushing this local repository to GitHub.
+**Live demo:** not deployed yet. **Repository:** [kashishray324-cell/Ballot-Boreal](https://github.com/kashishray324-cell/Ballot-Boreal).
 
 ## Limitations and next steps
 
