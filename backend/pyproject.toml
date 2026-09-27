@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "ballot-boreal-api"
 version = "0.1.0"
@@ -12,6 +16,9 @@ dependencies = [
   "sqlalchemy[asyncio]==2.0.43",
   "uvicorn[standard]==0.35.0"
 ]
+
+[tool.setuptools]
+packages = ["app"]
 
 [dependency-groups]
 dev = ["httpx==0.28.1", "pytest==8.4.2", "pytest-asyncio==1.1.0", "ruff==0.12.11"]
