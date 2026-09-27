@@ -98,7 +98,7 @@ uv run --directory backend ruff check .
 uv run --directory backend pytest
 ```
 
-The repository currently has 28 useful tests: Compact boundary assertions; redaction; receipt validation; local witness persistence and rotation; provider discovery; network selection; actionable wallet recovery; no-fake-transaction handling; persistent wallet access; Netlify routing and graceful service fallback; responsive voter rendering; FastAPI health and database availability; Neon URL normalization and migration routing; Gemini fallback; public-policy hash caching; public receipt storage, privacy checks, and aggregation.
+The repository currently has 29 useful tests: Compact boundary assertions; redaction and local policy preflight; receipt validation; local witness persistence and rotation; provider discovery; network selection; actionable wallet recovery; no-fake-transaction handling; persistent wallet access; Netlify routing and graceful service fallback; responsive voter rendering; FastAPI health and database availability; Neon URL normalization and migration routing; Gemini fallback; public-policy hash caching; public receipt storage, privacy checks, and aggregation.
 
 ## Production deployment: Netlify + Render
 
