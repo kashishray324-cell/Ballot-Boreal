@@ -18,11 +18,20 @@ class Settings(BaseSettings):
 
     @property
     def async_database_url(self) -> str:
-        if self.database_url.startswith("postgres://"):
-            return self.database_url.replace("postgres://", "postgresql+asyncpg://", 1)
-        if self.database_url.startswith("postgresql://"):
-            return self.database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        return self.database_url
+        return self._as_async_url(self.database_url)
+
+    @property
+    def migration_database_url(self) -> str:
+        """Prefer Neon's direct URL for migrations and keep asyncpg as the only driver."""
+        return self._as_async_url(self.database_direct_url or self.database_url)
+
+    @staticmethod
+    def _as_async_url(url: str) -> str:
+        if url.startswith("postgres://"):
+            return url.replace("postgres://", "postgresql+asyncpg://", 1)
+        if url.startswith("postgresql://"):
+            return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
 
 
 @lru_cache

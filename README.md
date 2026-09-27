@@ -46,6 +46,7 @@ contracts/           Compact source, privacy rationale, generated-artifact desti
 backend/app/         FastAPI API, async SQLAlchemy models, Gemini boundary service
 backend/alembic/     Initial public-only database migration
 netlify/functions/   Netlify-native TypeScript adapter for the public API routes
+render.yaml          Render Blueprint for the production FastAPI service
 docs/                Product, architecture, privacy, and demo documentation
 .github/workflows/   CI and GitHub Pages deployment workflow
 ```
@@ -99,22 +100,22 @@ uv run --directory backend pytest
 
 The repository currently has 25 useful tests: Compact boundary assertions; redaction; receipt validation; local witness persistence and rotation; provider discovery; network selection; actionable wallet recovery; no-fake-transaction handling; persistent wallet access; Netlify routing and graceful service fallback; responsive voter rendering; FastAPI health and database availability; Gemini fallback; public-policy hash caching; public receipt storage, privacy checks, and aggregation.
 
-## Netlify deployment
+## Production deployment: Netlify + Render
 
-This repository is configured as one Netlify site. Vite publishes the frontend from `dist/`, while the Netlify-native TypeScript function in `netlify/functions/api.mts` serves `/api/health`, `/api/metrics`, `/api/policy-plan`, and `/api/receipts`. The existing FastAPI application remains available for local development or separate backend hosting.
+The recommended split is a Netlify-hosted Vite frontend and the FastAPI service on Render. `render.yaml` defines the backend as a Singapore-region Python web service, runs Alembic before Uvicorn starts, binds to Render's `$PORT`, and uses a dependency-free liveness probe. The frontend retries one transient request so a free Render service can wake without immediately presenting a failure.
 
-1. Import `kashishray324-cell/Ballot-Boreal` into Netlify with the repository root as the base directory. Netlify reads `netlify.toml`; no build-setting overrides are required.
-2. In **Project configuration → Environment variables**, add `DATABASE_URL` using the pooled Neon Postgres URL, `GEMINI_API_KEY` if desired, `GEMINI_MODEL=gemini-2.5-flash`, `ALLOWED_ORIGINS=https://YOUR-SITE.netlify.app`, and `ENVIRONMENT=production`. Do not put secrets in `netlify.toml` or a `VITE_*` variable.
-3. Run the existing Alembic migration once against `DATABASE_DIRECT_URL` before the production deploy: `uv run --directory backend alembic upgrade head`.
-4. Deploy and open `/api/health`. It should return `{"status":"ok","database":true}` before connecting a wallet.
+1. In Render, choose **New → Blueprint**, connect `kashishray324-cell/Ballot-Boreal`, and use the repository-root `render.yaml`.
+2. Set `DATABASE_URL` to the pooled Neon URL, `DATABASE_DIRECT_URL` to its direct URL, and `ALLOWED_ORIGINS` to the exact Netlify origin (for example, `https://ballot-boreal.netlify.app`). `GEMINI_API_KEY` is optional. These are backend secrets and must never use a `VITE_` prefix.
+3. After Render is healthy, open `https://YOUR-RENDER-SERVICE.onrender.com/health`. It should report `"database": true`.
+4. In Netlify, set only `VITE_API_URL=https://YOUR-RENDER-SERVICE.onrender.com`, then trigger a fresh frontend deploy. Do not append `/api`; FastAPI serves `/metrics`, `/policy-plan`, and `/receipts` from the service root.
 
-The frontend uses same-origin `/api` by default, so `VITE_API_URL` should be left unset in Netlify. Netlify does not supply a compatible Midnight proof service; deploy that separately only after choosing the official compiler/proof-server release.
+Import the GitHub repository into Netlify or use `npm run deploy:netlify`; dragging only `dist/` is not a complete project deployment. The Netlify function remains as a same-origin fallback for local or alternate hosting, but production traffic should use the Render URL once `VITE_API_URL` is set.
 
-Do not deploy by dragging the generated `dist/` directory into Netlify: that uploads the static frontend but omits serverless functions, causing `/api/*` to return 404. Import the GitHub repository, or link the site with Netlify CLI and run `npm run deploy:netlify` so the build and API function are deployed together.
+Render's free web service sleeps after inactivity, has an ephemeral filesystem, and is intended for evaluation rather than strict production uptime. Neon keeps the database persistent, and upgrading only the Render compute plan removes the cold-start tradeoff without changing this architecture.
 
 ## CI/CD
 
-Every push and pull request runs Node 22 install, Python/uv setup, Compact compilation, artifact-diff checking, contract validation, frontend lint/tests/build, and backend lint/tests. Set the repository variable `COMPACTC_INSTALL_URL` to a pinned official compiler archive before enabling CI. Netlify handles production deployment from the connected Git repository.
+Every push and pull request runs Node 22 install, Python/uv setup, Compact compilation, artifact-diff checking, contract validation, frontend lint/tests/build, and backend lint/tests. Set the repository variable `COMPACTC_INSTALL_URL` to a pinned official compiler archive before enabling CI. Netlify redeploys the frontend and Render redeploys the backend from the connected Git repository.
 
 **Live demo:** not deployed yet. **Repository:** [kashishray324-cell/Ballot-Boreal](https://github.com/kashishray324-cell/Ballot-Boreal).
 

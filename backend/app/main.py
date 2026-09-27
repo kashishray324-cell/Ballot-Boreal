@@ -43,6 +43,12 @@ async def health(response: Response):
     return {"status": "ok" if database else "degraded", "database": database, "environment": settings.environment}
 
 
+@app.get("/health/live")
+async def liveness():
+    """A dependency-free probe so a temporary database outage does not restart the API."""
+    return {"status": "ok"}
+
+
 @app.get("/metrics")
 async def metrics(session: AsyncSession = Depends(get_session)):
     count = (await session.execute(select(func.count()).select_from(ProofReceipt))).scalar_one()

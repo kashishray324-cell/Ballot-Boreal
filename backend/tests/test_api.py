@@ -13,6 +13,13 @@ async def test_health_endpoint():
 
 
 @pytest.mark.asyncio
+async def test_liveness_endpoint_has_no_database_dependency():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/health/live")
+    assert response.status_code == 200 and response.json() == {"status": "ok"}
+
+
+@pytest.mark.asyncio
 async def test_policy_endpoint_uses_safe_fallback():
     await init_models()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
