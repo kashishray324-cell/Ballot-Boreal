@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && npm run typecheck:netlify && vite build",
-    "deploy:netlify": "netlify deploy --build --prod",
+    "deploy:netlify": "npx --yes netlify-cli@latest deploy --build --prod",
     "typecheck:netlify": "tsc -p tsconfig.netlify.json",
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
