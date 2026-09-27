@@ -83,7 +83,7 @@ Set `MIDNIGHT_PROOF_SERVER_IMAGE` to the compatible official proof-server image.
 
 ### Neon and Gemini
 
-Create `production` and `development` Neon branches. Set `DATABASE_URL` to the pooled connection string for API traffic and `DATABASE_DIRECT_URL` to the direct connection string for Alembic operations. The database schema stores only public metadata, receipts, scope, aggregate counts, and hashes of public policy requests.
+Create `production` and `development` Neon branches. Set `DATABASE_URL` to the pooled connection string for API traffic and `DATABASE_URL_UNPOOLED` to the direct connection string for Alembic operations. `DATABASE_DIRECT_URL` remains supported as a legacy alias. The database schema stores only public metadata, receipts, scope, aggregate counts, and hashes of public policy requests.
 
 Set `GEMINI_API_KEY` only in backend deployment secrets. Gemini never receives a private witness, seed phrase, identity document, exact attribute, vote selection, or wallet address. Without it, the deterministic local fallback stays available.
 
@@ -98,14 +98,14 @@ uv run --directory backend ruff check .
 uv run --directory backend pytest
 ```
 
-The repository currently has 25 useful tests: Compact boundary assertions; redaction; receipt validation; local witness persistence and rotation; provider discovery; network selection; actionable wallet recovery; no-fake-transaction handling; persistent wallet access; Netlify routing and graceful service fallback; responsive voter rendering; FastAPI health and database availability; Gemini fallback; public-policy hash caching; public receipt storage, privacy checks, and aggregation.
+The repository currently has 28 useful tests: Compact boundary assertions; redaction; receipt validation; local witness persistence and rotation; provider discovery; network selection; actionable wallet recovery; no-fake-transaction handling; persistent wallet access; Netlify routing and graceful service fallback; responsive voter rendering; FastAPI health and database availability; Neon URL normalization and migration routing; Gemini fallback; public-policy hash caching; public receipt storage, privacy checks, and aggregation.
 
 ## Production deployment: Netlify + Render
 
 The recommended split is a Netlify-hosted Vite frontend and the FastAPI service on Render. `render.yaml` defines the backend as a Singapore-region Python web service, runs Alembic before Uvicorn starts, binds to Render's `$PORT`, and uses a dependency-free liveness probe. The frontend retries one transient request so a free Render service can wake without immediately presenting a failure.
 
 1. In Render, choose **New → Blueprint**, connect `kashishray324-cell/Ballot-Boreal`, and use the repository-root `render.yaml`.
-2. Set `DATABASE_URL` to the pooled Neon URL, `DATABASE_DIRECT_URL` to its direct URL, and `ALLOWED_ORIGINS` to the exact Netlify origin (for example, `https://ballot-boreal.netlify.app`). `GEMINI_API_KEY` is optional. These are backend secrets and must never use a `VITE_` prefix.
+2. Set `DATABASE_URL` to the pooled Neon URL, `DATABASE_URL_UNPOOLED` to its direct URL, and `ALLOWED_ORIGINS` to the exact Netlify origin (for example, `https://ballot-boreal.netlify.app`). `DATABASE_DIRECT_URL` remains supported as a legacy alias. `GEMINI_API_KEY` is optional. These are backend secrets and must never use a `VITE_` prefix.
 3. After Render is healthy, open `https://YOUR-RENDER-SERVICE.onrender.com/health`. It should report `"database": true`.
 4. In Netlify, set only `VITE_API_URL=https://YOUR-RENDER-SERVICE.onrender.com`, then trigger a fresh frontend deploy. Do not append `/api`; FastAPI serves `/metrics`, `/policy-plan`, and `/receipts` from the service root.
 

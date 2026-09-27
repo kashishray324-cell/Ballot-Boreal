@@ -14,7 +14,7 @@ services:
         value: production
       - key: DATABASE_URL
         sync: false
-      - key: DATABASE_DIRECT_URL
+      - key: DATABASE_URL_UNPOOLED
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false
