@@ -148,15 +148,27 @@ async function policyPlan(request: Request) {
 
   const clean = redactSensitiveText(raw.trim())
   const key = createHash('sha256').update(clean).digest('hex')
-  const sql = database()
-  const existing = await sql`SELECT plan_json FROM policy_plans WHERE request_hash = ${key} LIMIT 1`
-  if (existing[0]?.plan_json) {
-    const saved = typeof existing[0].plan_json === 'string' ? JSON.parse(existing[0].plan_json) : existing[0].plan_json
-    return json(saved as JsonValue, 200, { 'Cache-Control': 'public, max-age=60' })
+  const sql = process.env.DATABASE_URL ? database() : null
+  if (sql) {
+    try {
+      const existing = await sql`SELECT plan_json FROM policy_plans WHERE request_hash = ${key} LIMIT 1`
+      if (existing[0]?.plan_json) {
+        const saved = typeof existing[0].plan_json === 'string' ? JSON.parse(existing[0].plan_json) : existing[0].plan_json
+        return json(saved as JsonValue, 200, { 'Cache-Control': 'public, max-age=60' })
+      }
+    } catch {
+      // Policy explanation remains useful when the optional cache is unavailable.
+    }
   }
 
   const plan = await geminiPlan(clean)
-  await sql`INSERT INTO policy_plans (request_hash, plan_json, created_at) VALUES (${key}, ${JSON.stringify(plan)}, NOW()) ON CONFLICT (request_hash) DO NOTHING`
+  if (sql) {
+    try {
+      await sql`INSERT INTO policy_plans (request_hash, plan_json, created_at) VALUES (${key}, ${JSON.stringify(plan)}, NOW()) ON CONFLICT (request_hash) DO NOTHING`
+    } catch {
+      // A cache write must never block the privacy explanation itself.
+    }
+  }
   return json(plan, 200, { 'Cache-Control': 'public, max-age=60' })
 }
 
@@ -217,6 +229,6 @@ export default async (request: Request, _context: Context) => {
 }
 
 export const config: Config = {
-  path: '/api/*',
+  path: ['/api/health', '/api/metrics', '/api/policy-plan', '/api/receipts'],
   rateLimit: { action: 'rate_limit', aggregateBy: ['ip'], windowLimit: 60, windowSize: 60 },
 }

@@ -97,7 +97,7 @@ uv run --directory backend ruff check .
 uv run --directory backend pytest
 ```
 
-The repository currently has 19 useful tests: Compact boundary assertions; redaction; receipt validation; local witness persistence and rotation; provider discovery; network selection; actionable wallet recovery; no-fake-transaction handling; responsive voter rendering; FastAPI health and database availability; Gemini fallback; public-policy hash caching; public receipt storage, privacy checks, and aggregation.
+The repository currently has 25 useful tests: Compact boundary assertions; redaction; receipt validation; local witness persistence and rotation; provider discovery; network selection; actionable wallet recovery; no-fake-transaction handling; persistent wallet access; Netlify routing and graceful service fallback; responsive voter rendering; FastAPI health and database availability; Gemini fallback; public-policy hash caching; public receipt storage, privacy checks, and aggregation.
 
 ## Netlify deployment
 
@@ -109,6 +109,8 @@ This repository is configured as one Netlify site. Vite publishes the frontend f
 4. Deploy and open `/api/health`. It should return `{"status":"ok","database":true}` before connecting a wallet.
 
 The frontend uses same-origin `/api` by default, so `VITE_API_URL` should be left unset in Netlify. Netlify does not supply a compatible Midnight proof service; deploy that separately only after choosing the official compiler/proof-server release.
+
+Do not deploy by dragging the generated `dist/` directory into Netlify: that uploads the static frontend but omits serverless functions, causing `/api/*` to return 404. Import the GitHub repository, or link the site with Netlify CLI and run `npm run deploy:netlify` so the build and API function are deployed together.
 
 ## CI/CD
 

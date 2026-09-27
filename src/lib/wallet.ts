@@ -24,6 +24,8 @@ export function describeWalletError(error: unknown): string {
   if (message.includes('reject') || message.includes('denied')) return 'You declined the wallet request. Nothing was submitted.'
   if (message.includes('dust') || message.includes('balance')) return 'Your wallet needs sufficient DUST before it can submit this proof.'
   if (message.includes('prover') || message.includes('proof service')) return 'The proving service is unavailable. Your local data remains on this device; try again shortly.'
-  if (message.includes('indexer') || message.includes('network')) return 'The Midnight network indexer is unavailable. No receipt was created; try again shortly.'
+  if (message.includes('broadcast channel') || message.includes('channel secret') || message.includes('orphaned data')) return 'A browser wallet extension could not start its secure channel. Unlock 1AM, reload the page, and temporarily disable conflicting wallet extensions.'
+  if (message.includes('indexer') || message.includes('failed to fetch') || message.includes('service unavailable')) return 'The Midnight network indexer is unavailable. No receipt was created; try again shortly.'
+  if (message.includes('network') || message.includes('chain')) return 'The wallet network does not match this ballot. Select the same Preview or Preprod network in 1AM and try again.'
   return error instanceof Error ? error.message : 'The wallet request failed. No transaction was created.'
 }

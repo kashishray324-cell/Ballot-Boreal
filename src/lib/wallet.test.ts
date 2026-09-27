@@ -7,4 +7,9 @@ describe('Midnight wallet discovery', () => {
   it('passes selected network to the provider', async () => { const connect = async ({ network }: { network: 'preview' | 'preprod' } = { network: 'preview' }) => ({ address: network }); window.midnight = { a: { name: '1AM', connect } }; await expect(connectWallet('preprod')).resolves.toMatchObject({ address: 'preprod' }) })
   it('never manufactures a transaction without a circuit submitter', async () => await expect(submitProof({}, 'ballot', 'preview')).rejects.toThrow('No transaction was created'))
   it('turns known wallet failures into an actionable recovery message', () => expect(describeWalletError(new Error('insufficient DUST balance'))).toContain('DUST'))
+  it('separates indexer outages from a network mismatch', () => {
+    expect(describeWalletError(new Error('indexer unavailable'))).toContain('indexer')
+    expect(describeWalletError(new Error('wrong network selected'))).toContain('does not match')
+  })
+  it('explains extension broadcast failures without blaming Midnight', () => expect(describeWalletError(new Error('Broadcast channel unavailable'))).toContain('browser wallet extension'))
 })

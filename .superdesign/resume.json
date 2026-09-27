@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "/": {
+      "targetKind": "existing-ui",
+      "projectId": "425f7afd-5e0b-473a-87ee-942c7c873a6c",
+      "activeDraftId": "dfa09b4e-5ce8-4d92-a4bc-55cbe8624982",
+      "designSystemPath": ".superdesign/design-system.md",
+      "referenceIds": [],
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        "src/App.tsx",
+        "src/styles.css"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "e42dd182399783c344fd188d59163271d647543009244cbc9d6db02b9ec8c66e",
+        "src/App.tsx": "ccba372f1ce8d5b09708e4e7592cebb020f8353645a5d8fe7b47ad45eb547aac",
+        "src/styles.css": "279dd49d3d7bfc0f373aef0876f6907fe1602738dbf87602c095d8dffd577890"
+      },
+      "components": [
+        {
+          "name": "CivicHeader",
+          "id": "edf0942d-69a5-4cb7-8210-02a36c4001d7",
+          "sourcePath": "src/App.tsx"
+        }
+      ],
+      "drafts": {
+        "dfa09b4e-5ce8-4d92-a4bc-55cbe8624982": {
+          "title": "Ballot Boreal — Living Voter Journey",
+          "visualDirection": "Nordic civic interface with live proof theatre, interactive voter journey, disclosure map, activity signals, and persistent top navigation wallet control",
+          "currentVersion": 1
+        },
+        "488f76ae-1f49-4419-b0e4-9a9c92ac166a": {
+          "title": "Ballot Boreal — Flexible Civic Dashboard",
+          "visualDirection": "Dense but flexible civic dashboard with resumable sections, privacy inspector, ballot choice workspace, public activity, density control, and persistent wallet connection",
+          "parentDraftId": "dfa09b4e-5ce8-4d92-a4bc-55cbe8624982",
+          "currentVersion": 1
+        }
+      },
+      "updatedAt": "2026-09-27T15:50:51.4236544+05:30"
+    }
+  }
+}
