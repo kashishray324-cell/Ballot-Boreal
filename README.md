@@ -122,6 +122,10 @@ Render's free web service sleeps after inactivity, has an ephemeral filesystem, 
 
 Every push and pull request runs Node 22 install, Python/uv setup, official Compact devtools plus the pinned 0.31.1 toolchain, artifact-diff checking, contract validation, frontend lint/tests/build, and backend lint/tests. Netlify redeploys the frontend and Render redeploys the backend from the connected Git repository.
 
+## CI/CD Working Pipeline
+
+![GitHub Actions CI workflow with a successful run on main](docs/screenshots/ci-cd-working-pipeline.png)
+
 ## Live Website URL
 
 [https://aquamarine-chimera-bae5e6.netlify.app/](https://aquamarine-chimera-bae5e6.netlify.app/)
