@@ -33,7 +33,7 @@ jobs:
           "$HOME/.local/bin/compact" update 0.31.1
           "$HOME/.local/bin/compact" compile --version
       - name: Compile Compact contract
-        run: "$HOME/.local/bin/compact" compile contracts/BallotBoreal.compact contracts/artifacts
+        run: $HOME/.local/bin/compact compile contracts/BallotBoreal.compact contracts/artifacts
       - name: Verify committed generated artifacts
         run: git diff --exit-code -- contracts/artifacts
       - run: npm run contract:validate

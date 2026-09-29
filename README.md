@@ -69,6 +69,11 @@ Open `http://localhost:5173`. The API is available at `http://localhost:8000/doc
 
 The frontend discovers UUID-keyed providers from `window.midnight`, sorts 1AM first, and connects with the selected Preview or Preprod network. Switching networks clears the session-level wallet connection. The proof flow uses the official DApp Connector v4 proving, balancing, and submission APIs, then waits for Midnight.js finalization before showing or mirroring a receipt. If no shared contract address is configured, it deploys a clearly identified personal demo ballot using the local witness root and stores that address in the browser.
 
+### Preprod
+
+- Contract address: [`8992bc5aa1baba16663e189d34fab01b6dc0479a13edf239a83612710038c745`](https://explorer.1am.xyz/contract/8992bc5aa1baba16663e189d34fab01b6dc0479a13edf239a83612710038c745?network=preprod)
+- Deployment transaction: [`97517ea09da6ef93863476017559870606c6a7d45dc79ea77dfd6874de6b81d4`](https://explorer.1am.xyz/tx/97517ea09da6ef93863476017559870606c6a7d45dc79ea77dfd6874de6b81d4?network=preprod)
+
 ### Compact and proof server
 
 Compile with the official compiler version compatible with your target:
@@ -117,7 +122,43 @@ Render's free web service sleeps after inactivity, has an ephemeral filesystem, 
 
 Every push and pull request runs Node 22 install, Python/uv setup, official Compact devtools plus the pinned 0.31.1 toolchain, artifact-diff checking, contract validation, frontend lint/tests/build, and backend lint/tests. Netlify redeploys the frontend and Render redeploys the backend from the connected Git repository.
 
-**Live demo:** not deployed yet. **Repository:** [kashishray324-cell/Ballot-Boreal](https://github.com/kashishray324-cell/Ballot-Boreal).
+## Live Website URL
+
+[https://aquamarine-chimera-bae5e6.netlify.app/](https://aquamarine-chimera-bae5e6.netlify.app/)
+
+**Repository:** [kashishray324-cell/Ballot-Boreal](https://github.com/kashishray324-cell/Ballot-Boreal).
+
+## Demo Video URL
+
+[Open the Ballot Boreal demo video](https://drive.google.com/file/d/1J-1JSnDlDyf7dVvET1_uITuk7zvaCDX8/view?usp=sharing)
+
+## Website Screenshots
+
+### Homepage
+
+![Ballot Boreal homepage](docs/screenshots/homepage.png)
+
+### Privacy explainer
+
+![Ballot Boreal privacy explainer](docs/screenshots/privacy-explainer.png)
+
+### Voter workspace
+
+![Ballot Boreal voter workspace](docs/screenshots/voter-workspace.png)
+
+## Mobile Responsive UI
+
+### Mobile homepage
+
+![Ballot Boreal mobile homepage](docs/screenshots/mobile-homepage.jpg)
+
+### Mobile privacy explainer
+
+![Ballot Boreal mobile privacy explainer](docs/screenshots/mobile-explainer.jpg)
+
+### Mobile voter workspace
+
+![Ballot Boreal mobile voter workspace](docs/screenshots/mobile-voter-workspace.jpg)
 
 ## Limitations and next steps
 
