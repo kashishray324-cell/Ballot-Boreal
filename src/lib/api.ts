@@ -1,5 +1,6 @@
 export type PublicMetrics = { finalized_proofs: number; public_only: true }
 export type PolicyPlan = { summary: string; disclosures: string[]; private_by_default: string[]; caution: string; source: 'gemini' | 'local-fallback' }
+export type PublicReceipt = { tx_id: string; ballot_id: string; network: 'preview' | 'preprod'; nullifier: string; outcome: 'accepted'; finalized_at: string }
 
 const baseUrl = (import.meta.env.VITE_API_URL ?? '/api').replace(/\/$/, '')
 const retryableStatuses = new Set([502, 503, 504])
@@ -38,3 +39,4 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getMetrics() { return request<PublicMetrics>('/metrics') }
 export function getPolicyPlan(publicRequirement: string) { return request<PolicyPlan>('/policy-plan', { method: 'POST', body: JSON.stringify({ public_requirement: publicRequirement }) }) }
+export function recordReceipt(receipt: Omit<PublicReceipt, 'finalized_at'>) { return request<PublicReceipt>('/receipts', { method: 'POST', body: JSON.stringify(receipt) }) }

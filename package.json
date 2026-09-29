@@ -20,12 +20,20 @@
   "dependencies": {
     "@midnight-ntwrk/dapp-connector-api": "^4.0.1",
     "@midnight-ntwrk/midnight-js": "4.1.1",
+    "@midnight-ntwrk/midnight-js-contracts": "^4.1.1",
+    "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "^4.1.1",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "^4.1.1",
+    "@midnight-ntwrk/midnight-js-protocol": "^4.1.1",
+    "@midnight-ntwrk/midnight-js-types": "^4.1.1",
+    "@midnight-ntwrk/midnight-js-utils": "^4.1.1",
     "@neondatabase/serverless": "^1.1.0",
     "@netlify/functions": "^6.0.0",
     "framer-motion": "12.23.12",
     "lucide-react": "0.468.0",
     "react": "19.1.1",
-    "react-dom": "19.1.1"
+    "react-dom": "19.1.1",
+    "vite-plugin-node-polyfills": "^0.24.0",
+    "vite-plugin-wasm": "^3.6.0"
   },
   "devDependencies": {
     "@eslint/js": "9.35.0",

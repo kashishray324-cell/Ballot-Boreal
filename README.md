@@ -4,24 +4,24 @@
 
 [![CI](https://github.com/kashishray324-cell/Ballot-Boreal/actions/workflows/ci.yml/badge.svg)](https://github.com/kashishray324-cell/Ballot-Boreal/actions/workflows/ci.yml)
 
-Ballot Boreal is a Midnight dApp prototype for housing cooperatives, campus bodies, and member associations. A voter proves an issuer-signed eligibility credential locally, obtains an anonymous one-time nullifier, and submits a Compact circuit. The ledger receives an eligibility outcome, a nullifier, and public ballot state—never the credential, identity, or vote choice.
+Ballot Boreal is a Midnight dApp prototype for housing cooperatives, campus bodies, and member associations. A voter proves membership in an authority-published eligibility Merkle root, obtains an anonymous ballot-scoped nullifier, and submits a real Compact circuit. The ledger receives the nullifier and public aggregate state—never the member leaf, Merkle path, identity, or local record.
 
 The interface uses Nordic civic minimalism: quiet mineral surfaces, evergreen ink, paper-like rules, deliberate state labels, and a disclosure-first voter journey. It is designed for people who have never used a zero-knowledge proof before.
 
 ## Why Midnight
 
-Traditional online voting forces a poor choice: put identity-linked eligibility on a server, or weaken duplicate-vote controls. Midnight’s selective-disclosure model lets the contract verify a private credential and expose only a public eligibility result plus a replay-safe nullifier. That is a functional requirement, not visual crypto branding. See the [Midnight developer documentation](https://docs.midnight.network/) for the platform’s privacy and selective-disclosure model.
+Traditional online voting forces a poor choice: put identity-linked eligibility on a server, or weaken duplicate-vote controls. Midnight’s selective-disclosure model lets the contract verify a private Merkle membership witness and expose only a replay-safe nullifier. That is a functional requirement, not visual crypto branding. See the [Midnight developer documentation](https://docs.midnight.network/) for the platform’s privacy and selective-disclosure model.
 
 ## Privacy model
 
 | An observer can learn | An observer cannot learn |
 | --- | --- |
-| Ballot ID, opening/closing schedule, issuer key hash | Voter identity or wallet-held proving material |
-| A valid eligibility proof was accepted | Credential contents, membership details, expiry data |
+| Ballot ID and authority-published membership root | Voter identity or wallet-held proving material |
+| A valid eligibility proof was accepted | Member secret, leaf, and Merkle path |
 | A one-time nullifier and total finalized proof count | The relationship between a nullifier and an individual |
 | A finalized transaction ID and the permitted disclosure scope | Vote choice or raw eligibility record |
 
-`disclose(eligible)` is justified because the verifier needs the policy outcome only. `disclose(nullifier)` is justified because the ledger needs to reject a replay. No other witness value is intentionally disclosed. See [docs/PRIVACY_MODEL.md](docs/PRIVACY_MODEL.md).
+`disclose(true)` is justified because the verifier needs the policy outcome only. `disclose(nullifier)` is justified because the ledger needs to reject a replay. No member secret, leaf, or path is disclosed. See [docs/PRIVACY_MODEL.md](docs/PRIVACY_MODEL.md).
 
 ## Architecture
 
@@ -41,8 +41,8 @@ Gemini is optional. When configured, the API uses the official `google-genai` SD
 ## Repository structure
 
 ```text
-src/                 React app, wallet discovery, local witness metadata, UI tests
-contracts/           Compact source, privacy rationale, generated-artifact destination
+src/                 React app, 1AM adapter, Midnight.js providers, local private witness, UI tests
+contracts/           Compact source, generated browser contract, prover/verifier keys, ZKIR
 backend/app/         FastAPI API, async SQLAlchemy models, Gemini boundary service
 backend/alembic/     Initial public-only database migration
 netlify/functions/   Netlify-native TypeScript adapter for the public API routes
@@ -67,19 +67,19 @@ Open `http://localhost:5173`. The API is available at `http://localhost:8000/doc
 
 ### Wallet and networks
 
-The frontend discovers UUID-keyed providers from `window.midnight`, sorts 1AM first, and connects with the selected Preview or Preprod network. Switching networks clears the session-level wallet connection. The proof button never creates a synthetic transaction: it only calls a provider that exposes the Ballot Boreal circuit submitter, and waits for a real transaction identifier before a pending receipt state appears.
+The frontend discovers UUID-keyed providers from `window.midnight`, sorts 1AM first, and connects with the selected Preview or Preprod network. Switching networks clears the session-level wallet connection. The proof flow uses the official DApp Connector v4 proving, balancing, and submission APIs, then waits for Midnight.js finalization before showing or mirroring a receipt. If no shared contract address is configured, it deploys a clearly identified personal demo ballot using the local witness root and stores that address in the browser.
 
 ### Compact and proof server
 
 Compile with the official compiler version compatible with your target:
 
 ```sh
-compactc contracts/BallotBoreal.compact --output contracts/artifacts
+compact compile contracts/BallotBoreal.compact contracts/artifacts
 npm run contract:validate
-docker compose -f docker-compose.prover.yml up
+npm run contract:artifacts
 ```
 
-Set `MIDNIGHT_PROOF_SERVER_IMAGE` to the compatible official proof-server image. Generated browser/proving artifacts are intentionally not faked; compile and review them before committing. `contracts/README.md` records the contract boundary and disclosures.
+The committed browser artifacts were generated with Compact 0.31.1 (language 0.23). Vite publishes the circuit keys and binary ZKIR at `/keys` and `/zkir`; 1AM supplies the proving provider selected by the wallet user. Set `VITE_BALLOT_CONTRACT_ADDRESS_PREVIEW` and/or `VITE_BALLOT_CONTRACT_ADDRESS_PREPROD` to authority-deployed shared ballot addresses. `contracts/README.md` records the contract boundary and disclosures.
 
 ### Neon and Gemini
 
@@ -98,7 +98,7 @@ uv run --directory backend ruff check .
 uv run --directory backend pytest
 ```
 
-The repository currently has 29 useful tests: Compact boundary assertions; redaction and local policy preflight; receipt validation; local witness persistence and rotation; provider discovery; network selection; actionable wallet recovery; no-fake-transaction handling; persistent wallet access; Netlify routing and graceful service fallback; responsive voter rendering; FastAPI health and database availability; Neon URL normalization and migration routing; Gemini fallback; public-policy hash caching; public receipt storage, privacy checks, and aggregation.
+The repository contains frontend, Netlify adapter, and backend tests covering Compact boundary assertions, redaction and local policy preflight, receipt validation, private witness persistence and rotation, provider discovery, network selection, wallet recovery, persistent wallet access, API routing and fallback behavior, FastAPI health/database behavior, Gemini fallback, public-policy hash caching, receipt privacy checks, and aggregation.
 
 ## Production deployment: Netlify + Render
 
@@ -115,14 +115,14 @@ Render's free web service sleeps after inactivity, has an ephemeral filesystem, 
 
 ## CI/CD
 
-Every push and pull request runs Node 22 install, Python/uv setup, Compact compilation, artifact-diff checking, contract validation, frontend lint/tests/build, and backend lint/tests. Set the repository variable `COMPACTC_INSTALL_URL` to a pinned official compiler archive before enabling CI. Netlify redeploys the frontend and Render redeploys the backend from the connected Git repository.
+Every push and pull request runs Node 22 install, Python/uv setup, official Compact devtools plus the pinned 0.31.1 toolchain, artifact-diff checking, contract validation, frontend lint/tests/build, and backend lint/tests. Netlify redeploys the frontend and Render redeploys the backend from the connected Git repository.
 
 **Live demo:** not deployed yet. **Repository:** [kashishray324-cell/Ballot-Boreal](https://github.com/kashishray324-cell/Ballot-Boreal).
 
 ## Limitations and next steps
 
-- A real 1AM provider and a deployed Compact contract address are required to send a transaction.
-- The included source is privacy-reviewed but needs a compatible official Compact compiler run before generated artifacts can be committed.
-- Production needs issuer-key rotation, independent contract audit, election-opening governance, accessibility testing with voters, and a result-opening circuit appropriate to the ballot rules.
+- A real 1AM provider, wallet approval, network DUST, and reachable Midnight indexer/proving services are required to send a transaction.
+- Without a configured shared contract address, the app deploys a single-member personal demo ballot; production must distribute authority-issued Merkle paths and configure the shared address.
+- Production still needs an independent contract audit, governed root rotation/election windows, accessibility testing with voters, and a result-opening/tally circuit appropriate to the ballot rules.
 
 See [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) for a one-minute walkthrough and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system decisions.

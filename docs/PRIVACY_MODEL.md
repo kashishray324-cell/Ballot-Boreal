@@ -4,10 +4,9 @@
 
 | Data | Location | Public? | Retention |
 | --- | --- | --- | --- |
-| Membership credential and issuer signature | Wallet/prover only | No | User-controlled local state |
-| Voter secret | Wallet/prover only | No | Wallet-controlled |
+| Member secret and Merkle path | Browser/prover only | No | User-controlled local state |
 | Vote choice | Witness/proof circuit only | No | Not sent to API or database |
-| Ballot ID, issuer key hash, schedule | Compact public ledger | Yes | Contract lifetime |
+| Ballot ID and membership root | Compact public ledger | Yes | Contract lifetime |
 | Eligibility result | Compact receipt | Yes | Contract lifetime |
 | Nullifier | Compact public ledger | Yes, unlinkable | Contract lifetime |
 | Finalized transaction ID and scope | FastAPI/Neon | Yes | Operational retention |
@@ -15,9 +14,9 @@
 
 ## Circuit constraints
 
-`prove_eligibility` checks the ballot window, requested ballot, issuer signature, and membership claim while all credential values remain private. It discloses a boolean eligibility outcome only.
+`proveEligibility` checks that a private member secret and eight-level Merkle path open to the authority-published membership root for the requested ballot. The member leaf and path remain private; the circuit discloses only the successful outcome.
 
-`cast_once` derives a ballot-domain-specific nullifier from a private secret, rejects existing values, increments the public aggregate, and discloses that nullifier only. It has no `disclose()` call for credential, signature, secret, identity, or vote choice.
+`castOnce` derives a ballot-domain-specific nullifier from the private member secret, rejects existing values, increments the public aggregate, and discloses that nullifier only. It has no `disclose()` call for the member secret, Merkle leaf, path, identity, or vote choice.
 
 ## Gemini boundary
 

@@ -1,53 +1,102 @@
 // Ballot Boreal privacy contract.
-// The contract retains public election metadata and aggregate state only.
-// A voter-held credential witness is evaluated inside the proof and never enters ledger state.
+//
+// An election authority publishes a Merkle root containing eligible member
+// commitments. A voter supplies their leaf secret and Merkle path as a private
+// witness. Only a ballot-scoped nullifier and the aggregate proof count become
+// public; the member commitment and path are never disclosed.
 
-pragma language_version >= 0.10;
+pragma language_version 0.23;
 
-contract BallotBoreal {
-  // Public ledger state: safe for every observer.
-  ledger ballot_id: Bytes<32>;
-  ledger issuer_key_hash: Bytes<32>;
-  ledger opens_at: Uint<64>;
-  ledger closes_at: Uint<64>;
-  ledger finalized_proofs: Uint<64>;
-  ledger used_nullifiers: Set<Bytes<32>>;
+import CompactStandardLibrary;
 
-  // Private witness supplied by the wallet/prover; not written to the ledger.
-  witness membership_credential(): Bytes<256>;
-  witness credential_signature(): Bytes<64>;
-  witness voter_secret(): Bytes<32>;
+export struct MembershipWitness {
+  secret: Bytes<32>;
+  siblings: Vector<8, Bytes<32>>;
+  siblingOnLeft: Vector<8, Boolean>;
+}
 
-  circuit initialize(ballot: Bytes<32>, issuer: Bytes<32>, opens: Uint<64>, closes: Uint<64>) {
-    assert(opens < closes, "ballot schedule is invalid");
-    ballot_id = ballot;
-    issuer_key_hash = issuer;
-    opens_at = opens;
-    closes_at = closes;
-    finalized_proofs = 0;
-  }
+export ledger ballotId: Bytes<32>;
+export ledger membershipRoot: Bytes<32>;
+export ledger finalizedProofs: Counter;
+export ledger usedNullifiers: Set<Bytes<32>>;
 
-  // Private credential is signature-checked and its claims are constraint-checked locally.
-  // disclose(eligible) is justified: the verifier needs only the boolean policy outcome.
-  circuit prove_eligibility(now: Uint<64>, requested_ballot: Bytes<32>): Boolean {
-    const credential = membership_credential();
-    const signature = credential_signature();
-    assert(now >= opens_at && now <= closes_at, "ballot is not open");
-    assert(requested_ballot == ballot_id, "wrong ballot");
-    assert(verify_issuer_signature(issuer_key_hash, credential, signature), "invalid issuer signature");
-    const eligible = credential_has_active_membership(credential, ballot_id, now);
-    assert(eligible, "credential is not eligible");
-    return disclose(eligible);
-  }
+witness membershipWitness(): MembershipWitness;
 
-  // Creates an unlinkable one-time nullifier from a private wallet secret and ballot domain.
-  // disclose(nullifier) is justified: the public ledger must reject a replay without identity linkage.
-  circuit cast_once(now: Uint<64>, requested_ballot: Bytes<32>): Bytes<32> {
-    assert(prove_eligibility(now, requested_ballot), "eligibility proof failed");
-    const nullifier = poseidon(voter_secret(), ballot_id);
-    assert(!used_nullifiers.contains(nullifier), "a proof was already accepted for this ballot");
-    used_nullifiers.insert(disclose(nullifier));
-    finalized_proofs = finalized_proofs + 1;
-    return disclose(nullifier);
-  }
+constructor(
+  configuredBallotId: Bytes<32>,
+  configuredMembershipRoot: Bytes<32>
+) {
+  // These values define the public verification policy for this deployment.
+  ballotId = disclose(configuredBallotId);
+  membershipRoot = disclose(configuredMembershipRoot);
+}
+
+export pure circuit memberLeaf(secret: Bytes<32>): Bytes<32> {
+  return persistentHash<[Bytes<21>, Bytes<32>]>([
+    "ballot-boreal:member:",
+    secret
+  ]);
+}
+
+export pure circuit merkleParent(
+  node: Bytes<32>,
+  sibling: Bytes<32>,
+  siblingOnLeft: Boolean
+): Bytes<32> {
+  return siblingOnLeft
+    ? persistentHash<[Bytes<32>, Bytes<32>]>([sibling, node])
+    : persistentHash<[Bytes<32>, Bytes<32>]>([node, sibling]);
+}
+
+export pure circuit memberRoot(witnessData: MembershipWitness): Bytes<32> {
+  const level0 = memberLeaf(witnessData.secret);
+  const level1 = merkleParent(level0, witnessData.siblings[0], witnessData.siblingOnLeft[0]);
+  const level2 = merkleParent(level1, witnessData.siblings[1], witnessData.siblingOnLeft[1]);
+  const level3 = merkleParent(level2, witnessData.siblings[2], witnessData.siblingOnLeft[2]);
+  const level4 = merkleParent(level3, witnessData.siblings[3], witnessData.siblingOnLeft[3]);
+  const level5 = merkleParent(level4, witnessData.siblings[4], witnessData.siblingOnLeft[4]);
+  const level6 = merkleParent(level5, witnessData.siblings[5], witnessData.siblingOnLeft[5]);
+  const level7 = merkleParent(level6, witnessData.siblings[6], witnessData.siblingOnLeft[6]);
+  return merkleParent(level7, witnessData.siblings[7], witnessData.siblingOnLeft[7]);
+}
+
+circuit requireEligible(
+  requestedBallotId: Bytes<32>
+): Bytes<32> {
+  const publicBallotId = disclose(requestedBallotId);
+  assert(publicBallotId == ballotId, "Wrong ballot");
+
+  const witnessData = membershipWitness();
+  assert(memberRoot(witnessData) == membershipRoot, "Membership witness is not eligible");
+  return witnessData.secret;
+}
+
+// Disclosure justification: the verifier learns only that the private witness
+// opens to the authority-published root for this ballot.
+export circuit proveEligibility(
+  requestedBallotId: Bytes<32>
+): Boolean {
+  requireEligible(requestedBallotId);
+  return disclose(true);
+}
+
+// Disclosure justification: a ballot-scoped nullifier is public so the ledger
+// can reject a second use of the same private member witness. The leaf and path
+// are not disclosed, and the domain includes the ballot ID to prevent linkage
+// between different ballots.
+export circuit castOnce(
+  requestedBallotId: Bytes<32>
+): Bytes<32> {
+  const secret = requireEligible(requestedBallotId);
+  const nullifier = persistentHash<[Bytes<24>, Bytes<32>, Bytes<32>]>([
+    "ballot-boreal:nullifier:",
+    ballotId,
+    secret
+  ]);
+  const publicNullifier = disclose(nullifier);
+
+  assert(!usedNullifiers.member(publicNullifier), "A proof was already accepted for this ballot");
+  usedNullifiers.insert(publicNullifier);
+  finalizedProofs.increment(1);
+  return publicNullifier;
 }

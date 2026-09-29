@@ -1,10 +1,9 @@
 import type { ConnectedAPI, InitialAPI } from '@midnight-ntwrk/dapp-connector-api'
+import { submitBallotProof } from './midnight'
+import type { LocalWitnessRecord } from './vault'
 
 export type Network = 'preview' | 'preprod'
-export type MidnightProvider = ConnectedAPI & {
-  disconnect?: () => Promise<void>
-  submitBallotProof?: (payload: { ballotId: string; network: Network }) => Promise<{ txId: string }>
-}
+export type MidnightProvider = ConnectedAPI & { disconnect?: () => Promise<void> }
 
 type DiscoveredWallet = { id: string; provider: InitialAPI }
 
@@ -50,9 +49,9 @@ export async function connectWallet(network: Network) {
   }
 }
 
-export async function submitProof(provider: MidnightProvider, ballotId: string, network: Network) {
-  if (!provider.submitBallotProof) throw new Error('This wallet cannot submit the Ballot Boreal Compact circuit yet. No transaction was created.')
-  return provider.submitBallotProof({ ballotId, network })
+export async function submitProof(provider: MidnightProvider, witness: LocalWitnessRecord | null, ballotId: string, network: Network) {
+  if (!witness) throw new Error('Prepare a local membership proof before generating the circuit.')
+  return submitBallotProof(provider, witness, ballotId, network)
 }
 
 function walletErrorMessage(error: unknown): string {
@@ -67,6 +66,9 @@ export function describeWalletError(error: unknown): string {
   if (message.includes('reject') || message.includes('denied') || message.includes('permissionrejected')) return 'You declined the wallet request. Nothing was submitted.'
   if (message.includes('dust') || message.includes('balance')) return 'Your wallet needs sufficient DUST before it can submit this proof.'
   if (message.includes('prover') || message.includes('proof service')) return 'The proving service is unavailable. Your local data remains on this device; try again shortly.'
+  if (message.includes('failed to fetch zk artifact') || message.includes('expected zk artifact')) return 'The compiled Ballot Boreal proving files could not be loaded. Redeploy the complete frontend build, including /keys and /zkir.'
+  if (message.includes('membership witness is not eligible')) return 'This local membership proof does not belong to the configured ballot root. Import the authority-issued proof for this ballot.'
+  if (message.includes('already accepted for this ballot')) return 'This private membership proof has already been accepted for this ballot. The contract prevented a duplicate.'
   if (message.includes('broadcast channel') || message.includes('channel secret') || message.includes('orphaned data')) return 'A browser wallet extension could not start its secure channel. Unlock 1AM, reload the page, and temporarily disable conflicting wallet extensions.'
   if (message.includes('indexer') || message.includes('failed to fetch') || message.includes('service unavailable')) return 'The Midnight network indexer is unavailable. No receipt was created; try again shortly.'
   if (message.includes('network mismatch') || message.includes('wrong network') || message.includes('unsupported network') || message.includes('invalid network id')) return 'The wallet network does not match this ballot. Select the same Preview or Preprod network in 1AM and try again.'

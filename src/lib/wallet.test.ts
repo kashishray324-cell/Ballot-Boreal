@@ -34,11 +34,12 @@ describe('Midnight wallet discovery', () => {
     await expect(connectWallet('preprod')).rejects.toThrow('Network mismatch')
   })
 
-  it('never manufactures a transaction without a circuit submitter', async () => await expect(submitProof(connectedApi('preview'), 'ballot', 'preview')).rejects.toThrow('No transaction was created'))
+  it('refuses to submit without a private membership witness', async () => await expect(submitProof(connectedApi('preview'), null, 'ballot', 'preview')).rejects.toThrow('Prepare a local membership proof'))
   it('turns known wallet failures into an actionable recovery message', () => expect(describeWalletError(new Error('insufficient DUST balance'))).toContain('DUST'))
   it('separates indexer outages from a network mismatch', () => {
     expect(describeWalletError(new Error('indexer unavailable'))).toContain('indexer')
     expect(describeWalletError(new Error('wrong network selected'))).toContain('does not match')
   })
   it('explains extension broadcast failures without blaming Midnight', () => expect(describeWalletError(new Error('Broadcast channel unavailable'))).toContain('browser wallet extension'))
+  it('explains an authority-root mismatch without blaming the wallet', () => expect(describeWalletError(new Error('Membership witness is not eligible'))).toContain('configured ballot root'))
 })

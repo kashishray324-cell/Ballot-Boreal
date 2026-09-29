@@ -24,16 +24,16 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
       - run: uv sync --directory backend --all-groups
-      # Provide COMPACTC_INSTALL_URL as a repository variable for the official release matching Preview/Preprod.
-      - name: Restore official Compact compiler
-        env: { COMPACTC_INSTALL_URL: ${{ vars.COMPACTC_INSTALL_URL }} }
+      - name: Install official Compact devtools and toolchain
         run: |
-          test -n "$COMPACTC_INSTALL_URL" || { echo "Set COMPACTC_INSTALL_URL to a pinned official compiler archive"; exit 1; }
-          curl -fsSL "$COMPACTC_INSTALL_URL" -o /tmp/compactc.tar.gz
-          tar -xzf /tmp/compactc.tar.gz -C /usr/local/bin
-          compactc --version
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            https://github.com/midnightntwrk/compact/releases/download/compact-v0.5.0/compact-installer.sh \
+            -o /tmp/compact-installer.sh
+          sh /tmp/compact-installer.sh
+          "$HOME/.local/bin/compact" update 0.31.1
+          "$HOME/.local/bin/compact" compile --version
       - name: Compile Compact contract
-        run: compactc contracts/BallotBoreal.compact --output contracts/artifacts
+        run: "$HOME/.local/bin/compact" compile contracts/BallotBoreal.compact contracts/artifacts
       - name: Verify committed generated artifacts
         run: git diff --exit-code -- contracts/artifacts
       - run: npm run contract:validate
