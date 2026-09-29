@@ -13,6 +13,7 @@ import {
 } from '@midnight-ntwrk/midnight-js-protocol/ledger'
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api'
 import { createProofProvider } from '@midnight-ntwrk/midnight-js-types'
+import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id'
 import {
   ballotPrivateStateKey,
   compiledBallotContract,
@@ -125,6 +126,10 @@ export async function submitBallotProof(
   ballotId: string,
   network: Network,
 ) {
+  // Keep the global Midnight.js runtime aligned with the ballot's selected network,
+  // including if the voter changed networks after connecting their wallet.
+  setNetworkId(network)
+
   await connected.hintUsage([
     'getConfiguration',
     'getShieldedAddresses',

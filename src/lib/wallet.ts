@@ -1,4 +1,5 @@
 import type { ConnectedAPI, InitialAPI } from '@midnight-ntwrk/dapp-connector-api'
+import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id'
 import { submitBallotProof } from './midnight'
 import type { LocalWitnessRecord } from './vault'
 
@@ -25,6 +26,10 @@ async function readDisplayAddress(provider: ConnectedAPI): Promise<string | unde
 }
 
 export async function connectWallet(network: Network) {
+  // Midnight.js uses a global network ID for address derivation and transaction serialization.
+  // Set it before invoking the wallet connector or any other Midnight operation.
+  setNetworkId(network)
+
   const wallet = discoverWallets()[0]
   if (!wallet) throw new Error('No compatible Midnight wallet was found. Update or unlock 1AM, then try again.')
 
